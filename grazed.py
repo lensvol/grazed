@@ -100,7 +100,7 @@ def load_rzd_orders(login, password):
     return result
 
 
-def extract_tickets_data(orders):
+def extract_tickets_data(orders, active_only=False):
     u'''
     Извлечение и преобразование данных о билетах из списка заказов с сайта РЖД.
     Необходимость в этом существует, так как в рамках одного заказа может находиться
@@ -117,6 +117,9 @@ def extract_tickets_data(orders):
                                       '%d.%m.%Y %H:%M')
 
         for personal_ticket in order['lst']:
+            if active_only and order['inactive']:
+                continue
+
             ticket = {
                 'departure': departure,
                 'from_station': order['station0'],
@@ -143,12 +146,14 @@ def extract_tickets_data(orders):
     return tickets
 
 if __name__ == '__main__':
-    parser = OptionParser()
+    parser = OptionParser(usage='Usage: %prog [options] username password')
+    parser.add_option('', '--active', dest='active_only', action='store_true',
+                      help=u'Display tickets from active orders only.')
     (options, args) = parser.parse_args()
 
     orders = load_rzd_orders(args[0], args[1])
     assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
-    tickets = extract_tickets_data(orders['slots'])
+    tickets = extract_tickets_data(orders['slots'], active_only=options.active_only)
 
     for ticket in tickets:
         print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
