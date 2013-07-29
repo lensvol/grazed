@@ -34,6 +34,20 @@ RZD_LOGOUT_URL = 'http://rzd.ru/main/ibm_security_logout?logoutExitPage=http://r
 
 
 def load_rzd_orders(login, password):
+    u'''
+    Загрузка списка заказов билетов через сайт РЖД. При необходимости
+     выполняет загрузку списка по частям, если за один запрос получить
+     весь список не получилось (не совсем понятно, чем они руководствуются).
+
+    Из соображений вежливости, между каждым запросом проходит по 3 секунды.
+
+    @param  login   Имя пользователя на сайте rzd.ru.
+    @type   login   unicode
+
+    @param  password   Пароль на сайте rzd.ru.
+    @type   password   unicode
+    '''
+
     session = requests.Session()
 
     login_data = {
@@ -58,14 +72,15 @@ def load_rzd_orders(login, password):
     resp = session.get(RZD_LOGIN_CHECK_URL)
     # Входим в систему
     resp = session.post(RZD_LOGIN_CHECK_URL, data=login_data)
-    
-    # Получаем список билетов
 
+    # Получаем список билетов
     resp = session.post(RZD_ENDPOINT_URL, data=tickets_data)
     data = json.loads(resp.text)
     time.sleep(3)
 
     result.update(data)
+    # Если мы получили не все данные, то пробуем последовательно получить
+    # остатки с небольшими пробелами.
     if data['totalCount'] > len(data['slots']):
         total_count = data['totalCount'] - len(data['slots'])
         cur_page = 1
@@ -132,9 +147,7 @@ if __name__ == '__main__':
     (options, args) = parser.parse_args()
 
     orders = load_rzd_orders(args[0], args[1])
-    #assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
-    import pprint
-    pprint.pprint(orders)
+    assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
     tickets = extract_tickets_data(orders['slots'])
 
     for ticket in tickets:
