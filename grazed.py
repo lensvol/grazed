@@ -1,0 +1,141 @@
+#coding: utf-8
+
+# The MIT License (MIT)
+#
+# Copyright (c) <year> <copyright holders>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+from datetime import datetime
+import json
+import requests
+import time
+from optparse import OptionParser
+
+RZD_LOGIN_CHECK_URL = u'https://rzd.ru/timetable/j_security_check'
+RZD_ENDPOINT_URL = u'https://pass.rzd.ru/ticket/secure/ru'
+RZD_LOGOUT_URL = 'http://rzd.ru/main/ibm_security_logout?logoutExitPage=http://rzd.ru'
+
+
+def load_rzd_orders(login, password):
+    session = requests.Session()
+
+    login_data = {
+        'j_username': login,
+        'j_password': password,
+        'action': u'Вход'
+    }
+    tickets_data = {
+        'STRUCTURE_ID': 5235,
+        'layer_id': 5419,
+        'page': 1,
+        'date0': '',
+        'date1': '',
+        'number': ''
+    }
+    result = {
+        'totalCount': 0,
+        'slots': []
+    }
+
+    # Получаем куки для входа в систему
+    resp = session.get(RZD_LOGIN_CHECK_URL)
+    # Входим в систему
+    resp = session.post(RZD_LOGIN_CHECK_URL, data=login_data)
+    
+    # Получаем список билетов
+
+    resp = session.post(RZD_ENDPOINT_URL, data=tickets_data)
+    data = json.loads(resp.text)
+    time.sleep(3)
+
+    result.update(data)
+    if data['totalCount'] > len(data['slots']):
+        total_count = data['totalCount'] - len(data['slots'])
+        cur_page = 1
+
+        while total_count > 0:
+            cur_page += 1
+            tickets_data['page'] = cur_page
+            resp = session.post(RZD_ENDPOINT_URL, data=tickets_data)
+            data = json.loads(resp.text)
+            time.sleep(3)
+
+            total_count -= len(data['slots'])
+            result['slots'].extend(data['slots'])
+
+    # Выйдем из системы
+    session.post(RZD_LOGOUT_URL)
+    return result
+
+
+def extract_tickets_data(orders):
+    u'''
+    Извлечение и преобразование данных о билетах из списка заказов с сайта РЖД.
+    Необходимость в этом существует, так как в рамках одного заказа может находиться
+    несколько билетов на разных людей, каждый со своим номером.
+
+    @param  orders  Список заказов, полученных из AJAX-запроса к сервису РЖД.
+    @type   orders  list of dict
+    '''
+    tickets = []
+
+    for order_container in orders:
+        order = order_container['lst'][0]
+        departure = datetime.strptime('%s %s' % (order['date0'], order['time0']),
+                                      '%d.%m.%Y %H:%M')
+
+        for personal_ticket in order['lst']:
+            ticket = {
+                'departure': departure,
+                'from_station': order['station0'],
+                'to_station': order['station1'],
+                # Номер поезда (см. http://www.rzd.me/inform-block/train-numerate/)
+                'train': order['train'],
+                'cost': personal_ticket['cost'],
+                'place': personal_ticket['place'],
+                'fio': personal_ticket['name'],
+                # Вагон
+                'car': order['car'],
+                # Класс вагона
+                # (см. http://pass.rzd.ru/timetable/public/ru?STRUCTURE_ID=735&layer_id=5499)
+                'car_class': order['carCls'],
+                # У каждого _билета_ есть свой номер для распечатки в терминале,
+                # однако id у заказа указывает на билет его создателя.
+                # Судя по выгрузке, 'number' у отдельных билетов начал проставляться
+                # примерно с июля 2012 года.
+                'electronic_id': personal_ticket['number'] or order['id'],
+                'order_id': order['id']
+            }
+            tickets.append(ticket)
+
+    return tickets
+
+if __name__ == '__main__':
+    parser = OptionParser()
+    (options, args) = parser.parse_args()
+
+    orders = load_rzd_orders(args[0], args[1])
+    #assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
+    import pprint
+    pprint.pprint(orders)
+    tickets = extract_tickets_data(orders['slots'])
+
+    for ticket in tickets:
+        print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
