@@ -22,8 +22,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-from datetime import datetime
+import datetime
 import json
+from decimal import Decimal
 import requests
 import time
 from optparse import OptionParser
@@ -31,6 +32,26 @@ from optparse import OptionParser
 RZD_LOGIN_CHECK_URL = u'https://rzd.ru/timetable/j_security_check'
 RZD_ENDPOINT_URL = u'https://pass.rzd.ru/ticket/secure/ru'
 RZD_LOGOUT_URL = 'http://rzd.ru/main/ibm_security_logout?logoutExitPage=http://rzd.ru'
+
+
+def json_default(o):
+    r'''
+    Обработка особых случаев кодирования данных в JSON.
+
+    @param  o   Кодируемый объект
+    @type   o   object
+    '''
+    if isinstance(o, datetime.date):
+        # JSON-кодировщик не понимает даты с годами меньше 1900 :-(
+        # Обычно это связано с datetime.date.min
+        if o.year < 1900:
+            date = datetime.datetime(1900, o.month, o.day, 0, 0, 0, 0)
+        else:
+            date = o
+        return date.strftime('%Y-%m-%d %H:%M:%S.%f')
+    elif isinstance(o, Decimal):
+        return unicode(o)
+    return json.JSONEncoder.default(self, o)
 
 
 def load_rzd_orders(login, password):
@@ -113,8 +134,8 @@ def extract_tickets_data(orders, active_only=False):
 
     for order_container in orders:
         order = order_container['lst'][0]
-        departure = datetime.strptime('%s %s' % (order['date0'], order['time0']),
-                                      '%d.%m.%Y %H:%M')
+        departure = datetime.datetime.strptime('%s %s' % (order['date0'], order['time0']),
+                                               '%d.%m.%Y %H:%M')
 
         for personal_ticket in order['lst']:
             if active_only and order['inactive']:
@@ -149,11 +170,16 @@ if __name__ == '__main__':
     parser = OptionParser(usage='Usage: %prog [options] username password')
     parser.add_option('', '--active', dest='active_only', action='store_true',
                       help=u'Display tickets from active orders only.')
+    parser.add_option('', '--json-dump', dest='json_dump', action='store_true',
+                      help=u'Dump tickets data in JSON.')
     (options, args) = parser.parse_args()
 
     orders = load_rzd_orders(args[0], args[1])
     assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
     tickets = extract_tickets_data(orders['slots'], active_only=options.active_only)
 
-    for ticket in tickets:
-        print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
+    if options.json_dump:
+        print json.dumps(tickets, indent=4, default=json_default)
+    else:
+        for ticket in tickets:
+            print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
