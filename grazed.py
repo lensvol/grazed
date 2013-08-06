@@ -29,10 +29,11 @@ import requests
 import time
 from optparse import OptionParser
 
+from config import Config
+
 RZD_LOGIN_CHECK_URL = u'https://rzd.ru/timetable/j_security_check'
 RZD_ENDPOINT_URL = u'https://pass.rzd.ru/ticket/secure/ru'
 RZD_LOGOUT_URL = 'http://rzd.ru/main/ibm_security_logout?logoutExitPage=http://rzd.ru'
-
 
 def json_default(o):
     r'''
@@ -167,19 +168,31 @@ def extract_tickets_data(orders, active_only=False):
     return tickets
 
 if __name__ == '__main__':
-    parser = OptionParser(usage='Usage: %prog [options] username password')
+    parser = OptionParser(usage='Usage: %prog [options] [username] [password]')
     parser.add_option('', '--active', dest='active_only', action='store_true',
                       help=u'Display tickets from active orders only.')
     parser.add_option('', '--json-dump', dest='json_dump', action='store_true',
                       help=u'Dump tickets data in JSON.')
     (options, args) = parser.parse_args()
 
-    orders = load_rzd_orders(args[0], args[1])
-    assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
-    tickets = extract_tickets_data(orders['slots'], active_only=options.active_only)
+    cfg = Config('grazed.conf')
 
-    if options.json_dump:
-        print json.dumps(tickets, indent=4, default=json_default)
+    rzd_login = cfg.get_value('rzd', 'login')
+    rzd_pass = cfg.get_value('rzd', 'password')
+
+    if len(args) > 2:
+        rzd_login = args[0]
+        rzd_pass = args[1]
+
+    if not rzd_login or not rzd_pass:
+        print 'ERROR: Authenthication data has not been specified!'
     else:
-        for ticket in tickets:
-            print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
+        orders = load_rzd_orders(rzd_login, rzd_pass)
+        assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
+        tickets = extract_tickets_data(orders['slots'], active_only=options.active_only)
+
+        if options.json_dump:
+            print json.dumps(tickets, indent=4, default=json_default)
+        else:
+            for ticket in tickets:
+                print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
