@@ -1,6 +1,6 @@
 #coding: utf-8
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Float, Time
+from sqlalchemy import Column, Integer, BigInteger, String, ForeignKey, Float, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -29,7 +29,7 @@ class Train(Base):
 
 class Ticket(Base):
     __tablename__ = 'tickets'
-    electronic_id = Column(Integer, primary_key=True)
+    electronic_id = Column(BigInteger, primary_key=True)
 
     train_id = Column(Integer, ForeignKey('trains.id'))
     cost = Column(Float)
