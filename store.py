@@ -28,6 +28,8 @@ if __name__ == '__main__':
         for ticket in tickets:            
             departure = datetime.datetime.strptime(ticket['departure'], '%Y-%m-%d %H:%M:%S.%f')
             
+            # Проверяем, есть ли данные по такому поезду в базе. Если нет - создадим.
+            # TODO: схлопывать поезда по численной части номера, без учета буквенного кода.
             try:
                 train = session.query(Train).\
                                filter(Train.name == ticket['train']).\
@@ -39,6 +41,7 @@ if __name__ == '__main__':
                               ticket['from_station'], ticket['to_station'])
                 session.add(train)
 
+            # Проверяем, есть ли данные по такому электронному билету.
             try:
                 ticket = session.query(Ticket)\
                                 .filter(Ticket.electronic_id == ticket['electronic_id']).one()
