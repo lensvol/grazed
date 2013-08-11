@@ -1,6 +1,6 @@
 #coding: utf-8
 
-from sqlalchemy import Column, Integer, BigInteger, String, ForeignKey, Float, Time
+from sqlalchemy import Column, Integer, BigInteger, String, ForeignKey, Float, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -15,15 +15,13 @@ class Train(Base):
     id = Column(Integer, primary_key=True)
     
     name = Column(String)
-    departure = Column(Time)
     start_point = Column(String)
     end_point = Column(String)
 
     tickets = relationship('Ticket', backref='train')
 
-    def __init__(self, name, departure, start, end):
+    def __init__(self, name, start, end):
          self.name = name
-         self.departure = departure
          self.start_point = start
          self.end_point = end
 
@@ -38,10 +36,12 @@ class Ticket(Base):
     __tablename__ = 'tickets'
     electronic_id = Column(BigInteger, primary_key=True)
 
+    departure = Column(DateTime)
+    car = Column(Integer)
+    seat = Column(Integer)
+
     train_id = Column(Integer, ForeignKey('trains.id'))
     cost = Column(Float)
 
-    def __init__(self, train, electronic_id, cost):
-        self.electronic_id = electronic_id
-        self.cost = cost
+    def __init__(self, train):
         train.tickets.append(self)
