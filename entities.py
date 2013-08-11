@@ -6,7 +6,11 @@ from sqlalchemy.ext.declarative import declarative_base
 
 Base = declarative_base()
 
+
 class Train(Base):
+    u'''
+    Поезд, отправляющийся из точки А до точки Б в определенное время.
+    '''
     __tablename__ = 'trains'
     id = Column(Integer, primary_key=True)
     
@@ -28,6 +32,9 @@ class Train(Base):
 
 
 class Ticket(Base):
+    u'''
+    Электронный билет, купленный на сайте РЖД (http://pass.rzd.ru).
+    '''
     __tablename__ = 'tickets'
     electronic_id = Column(BigInteger, primary_key=True)
 
