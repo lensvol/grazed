@@ -50,6 +50,7 @@ if __name__ == '__main__':
                                 .filter(Ticket.electronic_id == ticket['electronic_id']).one()
             except NoResultFound:
                 stored_ticket = Ticket(train)
+                stored_ticket.electronic_id = ticket['electronic_id']
                 stored_ticket.departure = departure
                 stored_ticket.car = int(ticket['car'])
                 stored_ticket.seat = int(ticket['place']) if ticket['place'] else 0
