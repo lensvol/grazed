@@ -23,18 +23,19 @@ def reply_to_sms():
             tickets = session.query(Ticket)\
                              .filter(Ticket.departure >= datetime.datetime.now())\
                              .order_by(Ticket.departure)
-            lines = []
-            for t in tickets:
-                resp.sms(u'%s, %s,%i вагон,%i место' % (
-                    t.departure.strftime('%d.%m.%Y %H:%M'),                    
-                    t.train.name,
-                    t.car,
-                    t.seat
-                ))
-            
-            result = '\n'.join(lines)
+
+            if tickets.count() > 0:
+                for t in tickets:
+                    resp.sms(u'%s, %s, %i вагон, %i место' % (
+                        t.departure.strftime('%d.%m.%Y %H:%M'),
+                        t.train.name,
+                        t.car,
+                        t.seat
+                    ))
+            else:
+                resp.sms(u'No pending tickets found.')
         except NoResultFound:
-            result = u'Nothing to see here, move along.'
+            resp.sms(u'Nothing to see here, move along.')
     return unicode(resp).encode('utf-8')
 
 if __name__ == '__main__':
