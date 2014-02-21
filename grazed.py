@@ -180,7 +180,7 @@ if __name__ == '__main__':
     rzd_login = cfg.get_value('rzd', 'login')
     rzd_pass = cfg.get_value('rzd', 'password')
 
-    if len(args) == 2:
+    if len(args) > 2:
         rzd_login = args[0]
         rzd_pass = args[1]
 
