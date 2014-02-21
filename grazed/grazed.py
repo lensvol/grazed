@@ -174,9 +174,8 @@ def main():
                       help=u'Dump tickets data in JSON.')
     (options, args) = parser.parse_args()
 
-    if len(args) > 2:
-        rzd_login = sys.args[0]
-        rzd_pass = sys.args[1]
+    if len(args) == 2:
+        rzd_login, rzd_pass = args
     else:
         parser.print_help()
         exit(-1)
@@ -184,7 +183,7 @@ def main():
     if not rzd_login or not rzd_pass:
         print 'ERROR: Authenthication data has not been specified!'
     else:
-        orders = load_rzd_orders(options.rzd_login, options.rzd_pass)
+        orders = load_rzd_orders(rzd_login, rzd_pass)
         assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
         tickets = extract_tickets_data(orders['slots'], active_only=options.active_only)
 
