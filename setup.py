@@ -16,4 +16,9 @@ setup(name="grazed",
           'Programming Language :: Python :: 2.6',
           'Development Status :: 3 - Alpha',
           'License :: OSI Approved :: MIT License'
-      ])
+      ],
+      entry_points={
+          'console_scripts': [
+              'grazed = grazed.grazed:main'
+          ]
+      })

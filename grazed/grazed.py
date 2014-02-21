@@ -165,19 +165,23 @@ def extract_tickets_data(orders, active_only=False):
 
     return tickets
 
-if __name__ == '__main__':
+
+def main():
     parser = OptionParser(usage='Usage: %prog [options] [username] [password]')
     parser.add_option('', '--active', dest='active_only', action='store_true',
                       help=u'Display tickets from active orders only.')
     parser.add_option('', '--json-dump', dest='json_dump', action='store_true',
                       help=u'Dump tickets data in JSON.')
-    parser.add_option('', '--login', dest='rzd_login', action='store',
-                      help=u'Login for http://pass.rzd.ru')
-    parser.add_option('', '--password', dest='rzd_pass', action='store',
-                      help='Password for http://pass.rzd.ru')
     (options, args) = parser.parse_args()
 
-    if not options.rzd_login or not options.rzd_pass:
+    if len(args) > 2:
+        rzd_login = sys.args[0]
+        rzd_pass = sys.args[1]
+    else:
+        parser.print_help()
+        exit(-1)
+
+    if not rzd_login or not rzd_pass:
         print 'ERROR: Authenthication data has not been specified!'
     else:
         orders = load_rzd_orders(options.rzd_login, options.rzd_pass)
@@ -189,3 +193,7 @@ if __name__ == '__main__':
         else:
             for ticket in tickets:
                 print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
+
+
+if __name__ == '__main__':
+    main()
