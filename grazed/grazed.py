@@ -1,4 +1,4 @@
-#coding: utf-8
+# -*- coding: utf-8 -*-
 
 # The MIT License (MIT)
 #
@@ -33,6 +33,7 @@ RZD_LOGIN_CHECK_URL = u'https://rzd.ru/timetable/j_security_check'
 RZD_ENDPOINT_URL = u'https://pass.rzd.ru/ticket/secure/ru'
 RZD_LOGOUT_URL = 'http://rzd.ru/main/ibm_security_logout?logoutExitPage=http://rzd.ru'
 
+
 def json_default(o):
     r'''
     Обработка особых случаев кодирования данных в JSON.
@@ -50,7 +51,19 @@ def json_default(o):
         return date.strftime('%Y-%m-%d %H:%M:%S.%f')
     elif isinstance(o, Decimal):
         return unicode(o)
-    return json.JSONEncoder.default(self, o)
+    return json.JSONEncoder.default(o)
+
+
+def rzd_post(session, url, data=None, wait_seconds=2):
+    resp = session.post(url, data=data)
+    resp_data = json.loads(resp.text)
+
+    if 'RID' in resp_data:
+        time.sleep(wait_seconds)
+        request_data = dict(data)
+        request_data['rid'] = resp_data['RID']
+        return rzd_post(session, url, data=request_data, wait_seconds=wait_seconds)
+    return resp_data
 
 
 def load_rzd_orders(login, password):
@@ -94,26 +107,9 @@ def load_rzd_orders(login, password):
     resp = session.post(RZD_LOGIN_CHECK_URL, data=login_data)
 
     # Получаем список билетов
-    resp = session.post(RZD_ENDPOINT_URL, data=tickets_data)
-    data = json.loads(resp.text)
-    time.sleep(3)
-
+    data = rzd_post(session, RZD_ENDPOINT_URL, data=tickets_data)
     result.update(data)
-    # Если мы получили не все данные, то пробуем последовательно получить
-    # остатки с небольшими пробелами.
-    if data['totalCount'] > len(data['slots']):
-        total_count = data['totalCount'] - len(data['slots'])
-        cur_page = 1
-
-        while total_count > 0:
-            cur_page += 1
-            tickets_data['page'] = cur_page
-            resp = session.post(RZD_ENDPOINT_URL, data=tickets_data)
-            data = json.loads(resp.text)
-            time.sleep(3)
-
-            total_count -= len(data['slots'])
-            result['slots'].extend(data['slots'])
+    result['totalCount'] = len(data['slots'])
 
     # Выйдем из системы
     session.post(RZD_LOGOUT_URL)
@@ -184,14 +180,14 @@ def main():
         print 'ERROR: Authenthication data has not been specified!'
     else:
         orders = load_rzd_orders(rzd_login, rzd_pass)
-        assert orders['totalCount'] == len(orders['slots']), u'Incorrect order count: %i != %i!' % (orders['totalCount'], len(orders['slots']))
         tickets = extract_tickets_data(orders['slots'], active_only=options.active_only)
 
         if options.json_dump:
             print json.dumps(tickets, indent=4, default=json_default)
         else:
             for ticket in tickets:
-                print u'%(electronic_id)s, %(departure)s, %(train)s поезд, %(car)s вагон, %(place)s место' % ticket
+                print u'%(electronic_id)s, %(departure)s, %(train)s поезд, ' \
+                      u'%(car)s вагон, %(place)s место' % ticket
 
 
 if __name__ == '__main__':
